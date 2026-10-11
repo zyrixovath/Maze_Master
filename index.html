@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maze Puzzle Adventure</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+            touch-action: manipulation;
+        }
+        /* Custom scrollbar and glass effect */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .dark .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        canvas {
+            image-rendering: pixelated;
+        }
+    </style>
+</head>
+<body class="h-full bg-gradient-to-br from-indigo-900 via-slate-900 to-purple-950 text-slate-100 flex flex-col items-center justify-between p-3 sm:p-6 overflow-x-hidden">
+
+    <header class="w-full max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4 glass-panel rounded-2xl p-4 shadow-xl mb-3">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl sm:text-2xl font-bold bg-gradient-to-r from-indigo-300 via-pink-300 to-white bg-clip-text text-transparent">Maze Master</h1>
+                <p class="text-xs text-slate-400">Ultra-Twisty Maze</p>
+            </div>
+        </div>
+
+        <!-- Controls / Stats Bar -->
+        <div class="flex flex-wrap items-center gap-2 sm:gap-4 text-sm">
+            <div class="flex items-center gap-1.5 bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-700/50">
+                <span class="text-slate-400">Time:</span>
+                <span id="timer-display" class="font-mono font-semibold text-indigo-400">00:00</span>
+            </div>
+            <div class="flex items-center gap-1.5 bg-slate-800/60 px-3 py-1.5 rounded-xl border border-slate-700/50">
+                <span class="text-slate-400">Moves:</span>
+                <span id="moves-display" class="font-mono font-semibold text-pink-400">0</span>
+            </div>
+            <button id="sound-toggle" class="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/50 transition text-slate-300" title="Toggle Sound">
+                🔊
+            </button>
+        </div>
+    </header>
+
+    <main class="w-full max-w-4xl flex-1 flex flex-col items-center justify-center gap-4 my-auto">
+        
+        <!-- Settings & Mode Toolbar -->
+        <div class="w-full flex flex-wrap items-center justify-between gap-3 px-1">
+            <div class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+                <button class="diff-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition bg-indigo-600 text-white shadow-md shadow-indigo-600/30" data-size="15">Easy (15x15)</button>
+                <button class="diff-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition bg-slate-800/80 text-slate-300 hover:bg-slate-700" data-size="25">Medium (25x25)</button>
+                <button class="diff-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition bg-slate-800/80 text-slate-300 hover:bg-slate-700" data-size="35">Hard (35x35)</button>
+                <button class="diff-btn px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition bg-slate-800/80 text-slate-300 hover:bg-slate-700" data-size="45">Expert (45x45)</button>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button id="fog-toggle" class="px-3 py-1.5 rounded-xl text-xs sm:text-sm font-medium bg-slate-800/80 hover:bg-slate-700 border border-slate-700/50 transition text-slate-300 flex items-center gap-1.5">
+                    <span>🌫️ Fog: Off</span>
+                </button>
+                </button>
+                <button id="new-game-btn" class="px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-semibold bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white shadow-lg shadow-pink-500/25 transition">
+                    New Game
+                </button>
+            </div>
+        </div>
+
+        <!-- Canvas Game Arena -->
+        <div class="relative w-full aspect-square max-w-[540px] glass-panel rounded-3xl p-3 shadow-2xl flex items-center justify-center overflow-hidden">
+            <canvas id="maze-canvas" class="w-full h-full rounded-2xl shadow-inner cursor-pointer"></canvas>
+            
+            <!-- Best Score Badge Overlay -->
+            <div id="best-score-badge" class="absolute top-6 right-6 bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-full text-xs font-medium border border-slate-700/60 text-slate-300 shadow">
+                Best: --
+            </div>
+
+            <!-- Victory Modal / Overlay -->
+            <div id="victory-modal" class="absolute inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center hidden transition-all duration-300 z-20">
+                <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-emerald-400 to-cyan-400 flex items-center justify-center mb-4 shadow-lg shadow-emerald-500/40 animate-bounce">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-950" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h2 class="text-3xl font-bold text-white mb-1">Maze Conquered!</h2>
+                <p class="text-slate-300 text-sm mb-6">Fantastic job navigating through the labyrinth.</p>
+                
+                <div class="grid grid-cols-2 gap-4 w-full max-w-xs mb-6">
+                    <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-2xl">
+                        <div class="text-xs text-slate-400">Final Time</div>
+                        <div id="modal-time" class="text-xl font-mono font-bold text-indigo-400">00:00</div>
+                    </div>
+                    <div class="bg-slate-900/90 border border-slate-800 p-3 rounded-2xl">
+                        <div class="text-xs text-slate-400">Total Moves</div>
+                        <div id="modal-moves" class="text-xl font-mono font-bold text-pink-400">0</div>
+                    </div>
+                </div>
+
+                <button id="play-again-btn" class="px-6 py-3 rounded-2xl font-bold bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white shadow-xl shadow-indigo-500/30 transition transform hover:scale-105">
+                    Play Next Maze
+                </button>
+            </div>
+        </div>
+
+        <!-- On-Screen Touch D-Pad for Mobile -->
+        <div class="flex flex-col items-center gap-1 sm:hidden w-full max-w-[240px]">
+            <button id="btn-up" class="w-16 h-12 bg-slate-800/80 hover:bg-slate-700 active:bg-indigo-600 rounded-xl border border-slate-700/60 text-xl shadow flex items-center justify-center transition">⬆️</button>
+            <div class="flex items-center gap-16">
+                <button id="btn-left" class="w-16 h-12 bg-slate-800/80 hover:bg-slate-700 active:bg-indigo-600 rounded-xl border border-slate-700/60 text-xl shadow flex items-center justify-center transition">⬅️</button>
+                <button id="btn-right" class="w-16 h-12 bg-slate-800/80 hover:bg-slate-700 active:bg-indigo-600 rounded-xl border border-slate-700/60 text-xl shadow flex items-center justify-center transition">➡️</button>
+            </div>
+            <button id="btn-down" class="w-16 h-12 bg-slate-800/80 hover:bg-slate-700 active:bg-indigo-600 rounded-xl border border-slate-700/60 text-xl shadow flex items-center justify-center transition">⬇️</button>
+        </div>
+
+    </main>
+
+    <footer class="w-full max-w-4xl text-center text-xs text-slate-400 py-2">
+        Use Arrow Keys / WASD or D-Pad to move. Find the golden finish flag!
+    </footer>
+
+    <script>
+        // Game State Variables
+        let mazeSize = 15; // Default size
+        let grid = [];
+        let player = { x: 0, y: 0 };
+        let goal = { x: 0, y: 0 };
+        let gameState = 'playing'; // 'playing', 'won'
+        let timerSeconds = 0;
+        let timerInterval = null;
+        let movesCount = 0;
+        let soundEnabled = true;
+        let fogMode = false;
+
+
+        // DOM Elements
+        const canvas = document.getElementById('maze-canvas');
+        const ctx = canvas.getContext('2d');
+        const timerDisplay = document.getElementById('timer-display');
+        const movesDisplay = document.getElementById('moves-display');
+        const bestScoreBadge = document.getElementById('best-score-badge');
+        const victoryModal = document.getElementById('victory-modal');
+        const modalTime = document.getElementById('modal-time');
+        const modalMoves = document.getElementById('modal-moves');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const newGameBtn = document.getElementById('new-game-btn');
+        const soundToggle = document.getElementById('sound-toggle');
+        const fogToggle = document.getElementById('fog-toggle');
+        const diffButtons = document.querySelectorAll('.diff-btn');
+
+        // Web Audio API Synthesizer Setup
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'move') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(220, now);
+                    osc.frequency.exponentialRampToValueAtTime(110, now + 0.05);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'bump') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(80, now);
+                    osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+                    osc.start(now);
+                    osc.stop(now + 0.08);
+                } else if (type === 'win') {
+                    // Victory Arpeggio
+                    const notes = [261.63, 329.63, 392.00, 523.25];
+                    notes.forEach((freq, idx) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.type = 'triangle';
+                        o.frequency.setValueAtTime(freq, now + idx * 0.1);
+                        g.gain.setValueAtTime(0.15, now + idx * 0.1);
+                        g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.3);
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        o.start(now + idx * 0.1);
+                        o.stop(now + idx * 0.1 + 0.3);
+                    });
+                }
+            } catch (e) {
+                console.error("Audio playback error:", e);
+            }
+        }
+
+        // Cell Class for DFS Maze Generation
+        class Cell {
+            constructor(r, c) {
+                this.r = r;
+                this.c = c;
+                this.walls = { top: true, right: true, bottom: true, left: true };
+                this.visited = false;
+            }
+        }
+
+        // Generate Maze using Recursive Backtracker (DFS)
+        function generateMaze() {
+            grid = [];
+            for (let r = 0; r < mazeSize; r++) {
+                let row = [];
+                for (let c = 0; c < mazeSize; c++) {
+                    row.push(new Cell(r, c));
+                }
+                grid.push(row);
+            }
+
+            let stack = [];
+            let current = grid[0][0];
+            current.visited = true;
+
+            function getUnvisitedNeighbors(cell) {
+                let neighbors = [];
+                let { r, c } = cell;
+
+                if (r > 0 && !grid[r - 1][c].visited) neighbors.push(grid[r - 1][c]);
+                if (c < mazeSize - 1 && !grid[r][c + 1].visited) neighbors.push(grid[r][c + 1]);
+                if (r < mazeSize - 1 && !grid[r + 1][c].visited) neighbors.push(grid[r + 1][c]);
+                if (c > 0 && !grid[r][c - 1].visited) neighbors.push(grid[r][c - 1]);
+
+                return neighbors;
+            }
+
+            function removeWalls(a, b) {
+                let x = a.c - b.c;
+                if (x === 1) {
+                    a.walls.left = false;
+                    b.walls.right = false;
+                } else if (x === -1) {
+                    a.walls.right = false;
+                    b.walls.left = false;
+                }
+                let y = a.r - b.r;
+                if (y === 1) {
+                    a.walls.top = false;
+                    b.walls.bottom = false;
+                } else if (y === -1) {
+                    a.walls.bottom = false;
+                    b.walls.top = false;
+                }
+            }
+
+            let loopCount = 0;
+            while (true) {
+                let neighbors = getUnvisitedNeighbors(current);
+                if (neighbors.length > 0) {
+                    let next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                    next.visited = true;
+                    stack.push(current);
+                    removeWalls(current, next);
+                    current = next;
+                } else if (stack.length > 0) {
+                    current = stack.pop();
+                } else {
+                    break;
+                }
+            }
+
+            // Set player start and goal finish
+            player = { x: 0, y: 0 };
+            goal = { x: mazeSize - 1, y: mazeSize - 1 };
+        }
+
+        // Timer management
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerSeconds = 0;
+            updateTimerDisplay();
+            timerInterval = setInterval(() => {
+                if (gameState === 'playing') {
+                    timerSeconds++;
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
+            const secs = (timerSeconds % 60).toString().padStart(2, '0');
+            timerDisplay.textContent = `${mins}:${secs}`;
+        }
+
+        // Best score local storage
+        function getBestScoreKey() {
+            return `maze_best_${mazeSize}`;
+        }
+
+        function loadBestScore() {
+            const best = localStorage.getItem(getBestScoreKey());
+            if (best) {
+                const data = JSON.parse(best);
+                bestScoreBadge.textContent = `Best: ${data.moves} moves (${formatTime(data.time)})`;
+            } else {
+                bestScoreBadge.textContent = `Best: --`;
+            }
+        }
+
+        function checkAndUpdateBestScore() {
+            const key = getBestScoreKey();
+            const best = localStorage.getItem(key);
+            let isNewBest = false;
+            if (!best) {
+                isNewBest = true;
+            } else {
+                const data = JSON.parse(best);
+                if (movesCount < data.moves || (movesCount === data.moves && timerSeconds < data.time)) {
+                    isNewBest = true;
+                }
+            }
+            if (isNewBest) {
+                localStorage.setItem(key, JSON.stringify({ moves: movesCount, time: timerSeconds }));
+            }
+            loadBestScore();
+        }
+
+        function formatTime(sec) {
+            const m = Math.floor(sec / 60).toString().padStart(2, '0');
+            const s = (sec % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        // Canvas Rendering
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const size = container.clientWidth - 24;
+            canvas.width = size;
+            canvas.height = size;
+            drawMaze();
+        }
+
+        function drawMaze() {
+            if (!grid.length) return;
+            const width = canvas.width;
+            const height = canvas.height;
+            const cellSize = width / mazeSize;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Background
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, width, height);
+
+
+
+            // Draw Cells and Walls
+            for (let r = 0; r < mazeSize; r++) {
+                for (let c = 0; c < mazeSize; c++) {
+                    let cell = grid[r][c];
+                    let x = c * cellSize;
+                    let y = r * cellSize;
+
+                    // Fog of War Check
+                    if (fogMode) {
+                        let dist = Math.hypot(player.x - c, player.y - r);
+                        if (dist > 3.5) {
+                            ctx.fillStyle = '#020617';
+                            ctx.fillRect(x, y, cellSize, cellSize);
+                            continue; // Skip drawing walls/details for distant cells
+                        } else {
+                            // Semi-fog gradient or dim
+                            ctx.fillStyle = `rgba(15, 23, 42, ${Math.max(0, (dist - 2.5) / 1.0)})`;
+                            if (dist > 2.5) {
+                                ctx.fillRect(x, y, cellSize, cellSize);
+                            }
+                        }
+                    }
+
+                    // Draw floor visited or base cell
+                    ctx.fillStyle = '#1e293b';
+                    ctx.fillRect(x, y, cellSize, cellSize);
+
+                    // Walls
+                    ctx.strokeStyle = '#6366f1';
+                    ctx.lineWidth = Math.max(2, cellSize / 10);
+                    ctx.lineCap = 'round';
+
+                    if (cell.walls.top) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + cellSize, y);
+                        ctx.stroke();
+                    }
+                    if (cell.walls.right) {
+                        ctx.beginPath();
+                        ctx.moveTo(x + cellSize, y);
+                        ctx.lineTo(x + cellSize, y + cellSize);
+                        ctx.stroke();
+                    }
+                    if (cell.walls.bottom) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y + cellSize);
+                        ctx.lineTo(x + cellSize, y + cellSize);
+                        ctx.stroke();
+                    }
+                    if (cell.walls.left) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x, y + cellSize);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // Draw Goal (Finish Flag)
+            let gx = goal.x * cellSize + cellSize / 2;
+            let gy = goal.y * cellSize + cellSize / 2;
+            let goalRadius = cellSize * 0.35;
+            
+            // Outer glow ring
+            let grad = ctx.createRadialGradient(gx, gy, 2, gx, gy, goalRadius);
+            grad.addColorStop(0, '#f43f5e');
+            grad.addColorStop(1, 'rgba(244, 63, 94, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(gx, gy, goalRadius * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Flag center
+            ctx.fillStyle = '#fb7185';
+            ctx.beginPath();
+            ctx.arc(gx, gy, goalRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#ffffff';
+            ctx.font = `${Math.floor(cellSize * 0.4)}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🏁', gx, gy);
+
+            // Draw Player
+            let px = player.x * cellSize + cellSize / 2;
+            let py = player.y * cellSize + cellSize / 2;
+            let playerRadius = cellSize * 0.35;
+
+            ctx.fillStyle = '#38bdf8';
+            ctx.beginPath();
+            ctx.arc(px, py, playerRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Inner eye/glow for player avatar
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(px - playerRadius * 0.2, py - playerRadius * 0.2, playerRadius * 0.25, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Movement Logic
+        function movePlayer(dx, dy) {
+            if (gameState !== 'playing') return;
+
+            let currentCell = grid[player.y][player.x];
+            let canMove = false;
+
+            if (dx === 1 && dy === 0) { // Right
+                if (!currentCell.walls.right) { player.x++; canMove = true; }
+            } else if (dx === -1 && dy === 0) { // Left
+                if (!currentCell.walls.left) { player.x--; canMove = true; }
+            } else if (dx === 0 && dy === -1) { // Up
+                if (!currentCell.walls.top) { player.y--; canMove = true; }
+            } else if (dx === 0 && dy === 1) { // Down
+                if (!currentCell.walls.bottom) { player.y++; canMove = true; }
+            }
+
+            if (canMove) {
+                movesCount++;
+                movesDisplay.textContent = movesCount;
+                playSound('move');
+                drawMaze();
+
+                // Check Win Condition
+                if (player.x === goal.x && player.y === goal.y) {
+                    triggerVictory();
+                }
+            } else {
+                playSound('bump');
+            }
+        }
+
+        function triggerVictory() {
+            gameState = 'won';
+            clearInterval(timerInterval);
+            playSound('win');
+            checkAndUpdateBestScore();
+
+            modalTime.textContent = timerDisplay.textContent;
+            modalMoves.textContent = movesCount;
+            victoryModal.classList.remove('hidden');
+        }
+
+        // Start new game setup
+        function initNewGame() {
+            gameState = 'playing';
+            movesCount = 0;
+            movesDisplay.textContent = '0';
+            victoryModal.classList.add('hidden');
+            
+            generateMaze();
+            loadBestScore();
+            resizeCanvas();
+            startTimer();
+        }
+
+        // Event Listeners
+        window.addEventListener('resize', resizeCanvas);
+
+        // Keyboard navigation
+        window.addEventListener('keydown', (e) => {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) {
+                e.preventDefault();
+            }
+
+            switch(e.code) {
+                case 'ArrowUp':
+                case 'KeyW':
+                    movePlayer(0, -1);
+                    break;
+                case 'ArrowDown':
+                case 'KeyS':
+                    movePlayer(0, 1);
+                    break;
+                case 'ArrowLeft':
+                case 'KeyA':
+                    movePlayer(-1, 0);
+                    break;
+                case 'ArrowRight':
+                case 'KeyD':
+                    movePlayer(1, 0);
+                    break;
+            }
+        });
+
+        // On-screen touch D-Pad listeners
+        document.getElementById('btn-up').addEventListener('click', () => movePlayer(0, -1));
+        document.getElementById('btn-down').addEventListener('click', () => movePlayer(0, 1));
+        document.getElementById('btn-left').addEventListener('click', () => movePlayer(-1, 0));
+        document.getElementById('btn-right').addEventListener('click', () => movePlayer(1, 0));
+
+        // Buttons
+        newGameBtn.addEventListener('click', initNewGame);
+        playAgainBtn.addEventListener('click', initNewGame);
+
+        soundToggle.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            soundToggle.textContent = soundEnabled ? '🔊' : '🔇';
+        });
+
+        fogToggle.addEventListener('click', () => {
+            fogMode = !fogMode;
+            fogToggle.innerHTML = `<span>🌫️ Fog: ${fogMode ? 'On' : 'Off'}</span>`;
+            drawMaze();
+        });
+
+
+        // Difficulty buttons
+        diffButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                diffButtons.forEach(b => {
+                    b.classList.remove('bg-indigo-600', 'text-white', 'shadow-md', 'shadow-indigo-600/30');
+                    b.classList.add('bg-slate-800/80', 'text-slate-300');
+                });
+                e.target.classList.remove('bg-slate-800/80', 'text-slate-300');
+                e.target.classList.add('bg-indigo-600', 'text-white', 'shadow-md', 'shadow-indigo-600/30');
+
+                mazeSize = parseInt(e.target.getAttribute('data-size'));
+                initNewGame();
+            });
+        });
+
+        // Initial Load
+        window.onload = () => {
+            initNewGame();
+        };
+    </script>
+</body>
+</html>
